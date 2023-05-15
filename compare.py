@@ -1,3 +1,4 @@
+import datetime
 import shutil
 
 import telegram
@@ -37,25 +38,31 @@ headers = {
     'user-agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/112.0.0.0 Safari/537.36',
 }
 def download_music(link:str, file_name:str):
-    with open(f'Downloaded_Music/{file_name}.mp3', "wb") as file:
+    with open(f'Parsers/Downloaded_Music/{file_name}.mp3', "wb") as file:
         urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
         response = requests.get(link, verify=False)
         file.write(response.content)
 
 # class="song-download btn4 download visited"
 def findMusic(url:str, file_name:str):
-    soup = BeautifulSoup(url, 'lxml')
-    id = soup.find('div', class_='whb_gr_r')\
-        .find('div', class_='song song-xl')['data-play']
-    url = BASE_DIR + 'download/' + id
-    download_music(url, file_name)
+    try:
+        soup = BeautifulSoup(url, 'lxml')
+        id = soup.find('div', class_='whb_gr_r') \
+            .find('div', class_='song song-xl')['data-play']
+        link = BASE_DIR + 'download/' + id
+        download_music(link, file_name)
+    except Exception as e:
+        raise Exception(f"Error in downloading {file_name}."
+                        f"\nProbably it can't be found in website."
+                        f"\nTry to write more specifically."
+                        ) from None
 
 # https://z2.fm/mp3/search?keywords=prince+Sueta
 
 def start():
     search_url = f'{BASE_DIR}/mp3/search/?keywords='
     try:
-        os.mkdir('Downloaded_Music')
+        os.mkdir('Parsers/Downloaded_Music')
     except FileExistsError:
         ...
     with open('music_list.txt', 'r') as file:
@@ -70,21 +77,24 @@ def start():
 
 async def send_audio():
     channel_id = '-1001937677342'
-    files = os.listdir('Downloaded_Music')
+    files = os.listdir('Parsers/Downloaded_Music')
     for f in files:
-        with open(f'Downloaded_Music/{f}', 'rb') as audio_file:
+        with open(f'Parsers/Downloaded_Music/{f}', 'rb') as audio_file:
             audio_name = f[:f.index('.')].split()
             title = (' ').join(audio_name[:-1])
-            await bot.send_audio( chat_id=channel_id, audio=audio_file, title=title, performer=audio_name[-1] )
-
+            message = await bot.send_audio( chat_id=channel_id, audio=audio_file, title=title, performer=audio_name[-1] )
+            await bot.delete_message( chat_id=channel_id, message_id=message.message_id )
 
 print("Loading Musics")
+begin = datetime.datetime.now()
 start()
 print("Done")
 print('------------------------------------------------------')
 
 
-# print('Sending to Telegram')
-# asyncio.run(send_audio())
-# print('Done')
-shutil.rmtree('Downloaded_Music')
+print('Sending to Telegram')
+asyncio.run(send_audio())
+shutil.rmtree('Parsers/Downloaded_Music')
+finish = datetime.datetime.now()
+print( finish - begin )
+print('Done')
